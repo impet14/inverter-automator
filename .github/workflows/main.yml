@@ -1,0 +1,41 @@
+name: Inverter Control Scheduler
+
+# This section defines when the workflow will run.
+on:
+  # This allows you to run the workflow manually from the Actions tab for testing.
+  workflow_dispatch:
+
+  # This is the scheduler. It uses CRON syntax.
+  # The times are in UTC. Bangkok is UTC+7.
+  # To run at 9:00 AM Bangkok time, we schedule it for 2:00 AM UTC (9 - 7 = 2).
+  # To run at 18:00 PM Bangkok time, we schedule it for 11:00 AM UTC (18 - 7 = 11).
+  schedule:
+    - cron: '0 2 * * *'  # Runs at 2:00 UTC every day (9:00 AM in Bangkok)
+    - cron: '0 11 * * *' # Runs at 11:00 UTC every day (6:00 PM in Bangkok)
+
+jobs:
+  run-inverter-script:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Check out a copy of your repository code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Set up the Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # Step 3: Install the necessary Python libraries (in our case, requests and pytz)
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pytz
+
+      # Step 4: Run the Python script
+      - name: Execute Inverter Control Script
+        env:
+          # This is how we securely pass your secret token to the script
+          INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
+        run: python inverter_control.py
