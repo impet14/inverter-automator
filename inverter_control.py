@@ -1,9 +1,8 @@
-# inverter_control.py
-
 import requests
 import datetime
 import os
 import pytz
+import sys
 
 # --- Configuration ---
 # We will get the sensitive token from GitHub Secrets, not hardcoded here.
@@ -58,16 +57,10 @@ def call_api(url, action_description):
         print(f"ERROR: Could not connect to API. Details: {e}")
         return None
 
-def main():
+def run_scheduled_logic():
     """
-    Main function to run the inverter control logic.
-    It checks the current time and decides which mode to set.
+    This function contains the original time-based logic for scheduled runs.
     """
-    if not API_TOKEN:
-        print("FATAL ERROR: INVERTER_TOKEN environment variable not set.")
-        print("Please configure the secret in your GitHub repository settings.")
-        return
-
     # Set the timezone to your local time (Bangkok, Thailand)
     # List of timezones: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
     local_timezone = pytz.timezone("Asia/Bangkok")
@@ -92,5 +85,35 @@ def main():
         # It's not the scheduled time, do nothing
         print("Not within a scheduled action window. No action will be taken.")
 
+
+def main():
+    """
+    Main function to run the inverter control logic.
+    Checks for command-line arguments to run specific functions manually.
+    If no arguments are provided, it runs the default scheduled logic.
+    """
+    if not API_TOKEN:
+        print("FATAL ERROR: INVERTER_TOKEN environment variable not set.")
+        print("Please configure the secret in your GitHub repository settings.")
+        return
+
+    # Check if a command-line argument was provided (e.g., "status", "solar", "sbu")
+    if len(sys.argv) > 1:
+        command = sys.argv[1].lower()
+        print(f"Manual command received: '{command}'")
+        if command == "status":
+            call_api(get_status_url(API_TOKEN), "Get inverter status")
+        elif command == "solar":
+            call_api(set_solar_mode_url(API_TOKEN), "Manually set output source to SOLAR")
+        elif command == "sbu":
+            call_api(set_sbu_mode_url(API_TOKEN), "Manually set output source to SBU")
+        else:
+            print(f"Error: Unknown command '{command}'. Valid commands are: status, solar, sbu.")
+    else:
+        # No command provided, run the default time-based logic for the schedule
+        print("No manual command detected. Running scheduled logic.")
+        run_scheduled_logic()
+
 if __name__ == "__main__":
     main()
+
