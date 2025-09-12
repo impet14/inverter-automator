@@ -19,7 +19,7 @@ on:
   # This is the original scheduler. It will continue to run automatically.
   schedule:
     # 9:00 AM Bangkok (UTC+7) is 2:00 AM UTC.
-    - cron: '0 2 * * *'
+    - cron: '40 1 * * *'
     # 6:00 PM (18:00) Bangkok (UTC+7) is 11:00 AM UTC.
     - cron: '0 11 * * *'
 
