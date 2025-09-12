@@ -73,13 +73,13 @@ def run_scheduled_logic():
     # --- Logic to decide which mode to set ---
     # We define a "morning" window and an "evening" window.
     # This makes the script work even if it runs a few minutes late.
-    if 8 <= current_hour < 12:
+    if 5 <= current_hour < 15:
         # It's morning, set to Solar mode
-        print("Time is in the morning window (8 AM - 12 PM). Setting to SOLAR mode.")
+        print("Time is in the morning window (5 AM - 3 PM). Setting to SOLAR mode.")
         call_api(set_solar_mode_url(API_TOKEN), "Set output source to SOLAR")
-    elif 17 <= current_hour < 21:
+    elif 16 <= current_hour < 24:
         # It's evening, set to SBU mode
-        print("Time is in the evening window (5 PM - 9 PM). Setting to SBU mode.")
+        print("Time is in the evening window (4 PM - 0 AM). Setting to SBU mode.")
         call_api(set_sbu_mode_url(API_TOKEN), "Set output source to SBU")
     else:
         # It's not the scheduled time, do nothing
