@@ -75,7 +75,7 @@ scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Bangkok'))
 
 # Schedule the jobs to run at your precise local times using 'cron' syntax.
 scheduler.add_job(set_to_solar_job, 'cron', hour=7, minute=30)
-scheduler.add_job(set_to_sbu_job, 'cron', hour=18, minute=31)
+scheduler.add_job(set_to_sbu_job, 'cron', hour=18, minute=32)
 
 # Start the scheduler in the background.
 print("Starting the background scheduler...")
