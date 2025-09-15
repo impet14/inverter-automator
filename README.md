@@ -1,2 +1,2 @@
 # inverter-automator
-Automating my solar inverter.
+Automating my solar PV inverter.
