@@ -1,4 +1,3 @@
-# this file main for render to automate control inverter
 import os
 import pytz
 import requests
@@ -6,19 +5,19 @@ from flask import Flask
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # --- Configuration Section ---
-# We will get the API_TOKEN from a secure environment variable later.
+# The new API Token will be read from a secure environment variable.
 API_TOKEN = os.environ.get('INVERTER_TOKEN') 
 PN = "Q0029389993714"
 SN = "Q002938999371409AD05"
 DEVCODE = "2477"
 BASE_URL = "https://web.dessmonitor.com/public/"
 
-# --- API URL Functions ---
-# These functions build the correct API URLs with your new sign and salt values.
+# --- API URL Functions (UPDATED) ---
+# These functions have been updated with the new sign and salt values.
 def set_solar_mode_url(token):
     """Returns the URL to set to 'Solar' mode with the NEW signature."""
     return (
-        f"{BASE_URL}?sign=bfd02f3e740be5be842badb0876b29659bf4fd59&salt=1757925531700"
+        f"{BASE_URL}?sign=2e0255a36c217c429c837c9d1101896e9b766d2e&salt=1759425890532"
         f"&token={token}&action=ctrlDevice&source=1&pn={PN}&sn={SN}&devcode={DEVCODE}"
         f"&devaddr=5&id=los_output_source_priority&val=1&i18n=en_US"
     )
@@ -26,7 +25,7 @@ def set_solar_mode_url(token):
 def set_sbu_mode_url(token):
     """Returns the URL to set to 'SBU' mode with the NEW signature."""
     return (
-        f"{BASE_URL}?sign=b6e3f81ce74e84b2f4c3c1d2ed5c14ecfc16a514&salt=1757925702459"
+        f"{BASE_URL}?sign=31a2fd5de82e2a58d551028341b3fb5b8bb03717&salt=1759425937434"
         f"&token={token}&action=ctrlDevice&source=1&pn={PN}&sn={SN}&devcode={DEVCODE}"
         f"&devaddr=5&id=los_output_source_priority&val=2&i18n=en_US"
     )
@@ -74,8 +73,8 @@ def home():
 scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Bangkok'))
 
 # Schedule the jobs to run at your precise local times using 'cron' syntax.
-scheduler.add_job(set_to_solar_job, 'cron', hour=7, minute=00)
-scheduler.add_job(set_to_sbu_job, 'cron', hour=18, minute=00)
+scheduler.add_job(set_to_solar_job, 'cron', hour=9, minute=0)
+scheduler.add_job(set_to_sbu_job, 'cron', hour=18, minute=0)
 
 # Start the scheduler in the background.
 print("Starting the background scheduler...")
