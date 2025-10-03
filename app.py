@@ -91,8 +91,8 @@ def status():
 
 # --- APScheduler Setup ---
 scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Bangkok'))
-scheduler.add_job(set_to_solar_job, 'cron', hour=7, minute=3)
-scheduler.add_job(set_to_sbu_job, 'cron', hour=18, minute=1)
+scheduler.add_job(set_to_solar_job, 'cron', hour=6, minute=23)
+scheduler.add_job(set_to_sbu_job, 'cron', hour=18, minute=2)
 scheduler.add_job(read_status_job, 'cron', minute=0)  # Read and log status at the start of every hour
 
 print("Starting the background scheduler...")
