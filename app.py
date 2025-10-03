@@ -5,15 +5,13 @@ from flask import Flask
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # --- Configuration Section ---
-# The new API Token will be read from a secure environment variable.
-API_TOKEN = os.environ.get('INVERTER_TOKEN') 
+API_TOKEN = os.environ.get('INVERTER_TOKEN')
 PN = "Q0029389993714"
 SN = "Q002938999371409AD05"
 DEVCODE = "2477"
 BASE_URL = "https://web.dessmonitor.com/public/"
 
-# --- API URL Functions (UPDATED) ---
-# These functions have been updated with the new sign and salt values.
+# --- API URL Functions ---
 def set_solar_mode_url(token):
     """Returns the URL to set to 'Solar' mode with the NEW signature."""
     return (
@@ -30,26 +28,38 @@ def set_sbu_mode_url(token):
         f"&devaddr=5&id=los_output_source_priority&val=2&i18n=en_US"
     )
 
+def read_status_url(token):
+    """Returns the URL to query the current output source priority status."""
+    return (
+        f"{BASE_URL}?sign=63bdf141c54c44069a37630777185c98ab863121&salt=1759425782351"
+        f"&token={token}&action=queryDeviceCtrlValue&source=1&pn={PN}&sn={SN}&devcode={DEVCODE}"
+        f"&devaddr=5&id=los_output_source_priority&i18n=en_US"
+    )
+
+# --- Logging/Printing Helper ---
+def print_command_log(url, action):
+    print(f"COMMAND: {action}")
+    print(f"URL: {url}")
+
 # --- API Call Helper Function ---
-# This reusable function handles calling the API and logging the outcome.
 def call_api(url, action_description):
-    print(f"Executing scheduled job: {action_description}")
+    print_command_log(url, action_description)
     if not API_TOKEN:
         print("FATAL ERROR: The INVERTER_TOKEN secret has not been configured.")
-        return
+        return None
     try:
-        # Make the web request to the inverter API
         response = requests.get(url, timeout=30)
-        response.raise_for_status() # Raise an error for bad responses (4xx or 5xx)
+        response.raise_for_status()
         data = response.json()
         print(f"SUCCESS: API Response from server: {data}")
         if data.get("err") != 0:
             print(f"WARNING: The API reported an error: {data.get('desc')}")
+        return data
     except requests.exceptions.RequestException as e:
         print(f"ERROR: The API call failed. Details: {e}")
+        return None
 
 # --- Job Definitions ---
-# These are the specific functions our scheduler will run at the set times.
 def set_to_solar_job():
     """Job to switch the inverter to Solar mode."""
     call_api(set_solar_mode_url(API_TOKEN), "Set output source priority to SOLAR")
@@ -58,9 +68,11 @@ def set_to_sbu_job():
     """Job to switch the inverter to SBU mode."""
     call_api(set_sbu_mode_url(API_TOKEN), "Set output source priority to SBU")
 
+def read_status_job():
+    """Job to read and log inverter output source priority status."""
+    call_api(read_status_url(API_TOKEN), "Read current output source priority status")
 
 # --- Flask Web Application ---
-# This part of the code creates a simple web server that keeps our script running 24/7.
 app = Flask(__name__)
 
 @app.route('/')
@@ -68,19 +80,24 @@ def home():
     """This creates a simple webpage to show that our service is alive and running."""
     return "<h1>Inverter Control Service</h1><p>The scheduler is active and running in the background.</p>"
 
-# --- APScheduler Setup ---
-# This is our high-precision internal clock. We set it to your local timezone.
-scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Bangkok'))
+@app.route('/status')
+def status():
+    """HTTP endpoint to check inverter status immediately."""
+    data = call_api(read_status_url(API_TOKEN), "Read current output source priority status (HTTP request)")
+    if data:
+        return f"<pre>{data}</pre>"
+    else:
+        return "<p>Could not read status.</p>", 500
 
-# Schedule the jobs to run at your precise local times using 'cron' syntax.
+# --- APScheduler Setup ---
+scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Bangkok'))
 scheduler.add_job(set_to_solar_job, 'cron', hour=7, minute=3)
 scheduler.add_job(set_to_sbu_job, 'cron', hour=18, minute=1)
+scheduler.add_job(read_status_job, 'cron', minute=0)  # Read and log status at the start of every hour
 
-# Start the scheduler in the background.
 print("Starting the background scheduler...")
 scheduler.start()
 print("Scheduler started successfully. Jobs are scheduled and waiting.")
 
 # Note: In a production environment like Render, a professional server called Gunicorn
 # will run the 'app' object. We don't need app.run() here.
-
