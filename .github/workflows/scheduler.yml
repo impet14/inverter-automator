@@ -1,0 +1,53 @@
+name: Inverter Control Scheduler
+
+on:
+  # This allows you to run the workflow manually from the Actions tab for testing
+  workflow_dispatch:
+
+  schedule:
+    # IMPORTANT: Times are in UTC. Thailand is UTC+7.
+
+    # Schedule for "Set to Solar Mode" at 06:05 Thai time
+    # 06:05 Bangkok (UTC+7) is 23:05 UTC on the *previous* day.
+    - cron: '5 23 * * *'
+
+    # Schedule for "Set to SBU Mode" at 18:03 Thai time
+    # 18:03 Bangkok (UTC+7) is 11:03 UTC on the *same* day.
+    - cron: '3 11 * * *'
+
+    # Schedule for "Read Status" at the top of every hour
+    - cron: '0 * * * *'
+
+jobs:
+  run-scheduled-task:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      # Determine which task to run based on the current UTC hour
+      - name: Set Solar Mode (06:05 Bangkok Time)
+        if: github.event.schedule == '5 23 * * *'
+        env:
+          INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
+        run: python inverter_control.py set-solar
+
+      - name: Set SBU Mode (18:03 Bangkok Time)
+        if: github.event.schedule == '3 11 * * *'
+        env:
+          INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
+        run: python inverter_control.py set-sbu
+
+      - name: Read Status (Hourly)
+        if: github.event.schedule == '0 * * * *'
+        env:
+          INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
+        run: python inverter_control.py read-status
