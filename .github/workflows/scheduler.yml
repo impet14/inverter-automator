@@ -7,13 +7,13 @@ on:
   schedule:
     # IMPORTANT: Times are in UTC. Thailand is UTC+7.
 
-    # Schedule for "Set to Solar Mode" at 06:05 Thai time
-    # 06:05 Bangkok (UTC+7) is 23:05 UTC on the *previous* day.
-    - cron: '5 23 * * *'
+    # Schedule for "Set to Solar Mode" at 05:00 Thai time
+    # 05:00 Bangkok (UTC+7) is 22:00 UTC on the *previous* day.
+    - cron: '0 22 * * *'
 
-    # Schedule for "Set to SBU Mode" at 18:03 Thai time
-    # 18:03 Bangkok (UTC+7) is 11:03 UTC on the *same* day.
-    - cron: '3 11 * * *'
+    # Schedule for "Set to SBU Mode" at 17:45 (5:45 PM) Thai time
+    # 17:45 Bangkok (UTC+7) is 10:45 UTC on the *same* day.
+    - cron: '45 10 * * *'
 
     # Schedule for "Read Status" at the top of every hour
     - cron: '0 * * * *'
@@ -33,15 +33,15 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      # Determine which task to run based on the current UTC hour
-      - name: Set Solar Mode (06:05 Bangkok Time)
-        if: github.event.schedule == '5 23 * * *'
+      # Determine which task to run based on the scheduled cron time
+      - name: Set Solar Mode (05:00 Bangkok Time)
+        if: github.event.schedule == '0 22 * * *'
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
         run: python inverter_control.py set-solar
 
-      - name: Set SBU Mode (18:03 Bangkok Time)
-        if: github.event.schedule == '3 11 * * *'
+      - name: Set SBU Mode (17:45 Bangkok Time)
+        if: github.event.schedule == '45 10 * * *'
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
         run: python inverter_control.py set-sbu
