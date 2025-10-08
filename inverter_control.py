@@ -1,119 +1,105 @@
-import requests
-import datetime
+# =================================================================================
+#  Inverter Control Script for GitHub Actions
+# =================================================================================
+#  This script is designed to be run by a scheduler. It accepts a command-line
+#  argument to determine which specific API action to perform.
+# =================================================================================
+
 import os
-import pytz
 import sys
+import logging
+import requests
 
-# --- Configuration ---
-# We will get the sensitive token from GitHub Secrets, not hardcoded here.
-# The script expects an environment variable named 'INVERTER_TOKEN'.
-API_TOKEN = os.environ.get('INVERTER_TOKEN')
+# --- Logging Configuration ---
+# Sets up simple and clear logging for the GitHub Actions console.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger("inverter-script")
 
-# Your device identifiers from the URL
+# --- Configuration from GitHub Secrets ---
+# The script will get the token from a secure secret named INVERTER_TOKEN.
+INVERTER_TOKEN = os.environ.get('INVERTER_TOKEN')
+
+# Device identifiers (these are constant for your device)
 PN = "Q0029389993714"
 SN = "Q002938999371409AD05"
 DEVCODE = "2477"
-
-# --- API URL Templates ---
-# Using f-strings to build the URLs dynamically with the token and parameters
+DEVADDR = "5"
 BASE_URL = "https://web.dessmonitor.com/public/"
 
-def get_status_url(token):
-    """Returns the URL to check the inverter's status."""
-    return (
-        f"{BASE_URL}?sign=12722bef3236d34648f8f8324421b51a9a400e4a&salt=1757519926971"
-        f"&token={token}&action=queryDeviceCtrlValue&source=1&pn={PN}&sn={SN}"
-        f"&devcode={DEVCODE}&devaddr=5&id=los_output_source_priority&i18n=en_US"
-    )
+# --- API URL Definitions ---
+# These are the static URLs you provided, ready to be formatted with the token.
+URL_CONFIG = {
+    'read-status': {
+        'description': "Read current status",
+        'url': (
+            f"{BASE_URL}?sign=60f41fa7d3fbef1e7020a6cee2897532d275d469&salt=1759845291939"
+            f"&token={{token}}&action=queryDeviceCtrlValue&source=1&pn={PN}&sn={SN}"
+            f"&devcode={DEVCODE}&devaddr={DEVADDR}&id=los_output_source_priority&i18n=en_US"
+        )
+    },
+    'set-solar': {
+        'description': "Set output priority to SOLAR",
+        'url': (
+            f"{BASE_URL}?sign=4718b344bd43a14e724f617672d64a47ee71d3cc&salt=1759845323170"
+            f"&token={{token}}&action=ctrlDevice&source=1&pn={PN}&sn={SN}"
+            f"&devcode={DEVCODE}&devaddr={DEVADDR}&id=los_output_source_priority&val=1&i18n=en_US"
+        )
+    },
+    'set-sbu': {
+        'description': "Set output priority to SBU",
+        'url': (
+            f"{BASE_URL}?sign=aa99db9e0021b84d4b594bad67f90f848b61287b&salt=1759845374128"
+            f"&token={{token}}&action=ctrlDevice&source=1&pn={PN}&sn={SN}"
+            f"&devcode={DEVCODE}&devaddr={DEVADDR}&id=los_output_source_priority&val=2&i18n=en_US"
+        )
+    }
+}
 
-def set_solar_mode_url(token):
-    """Returns the URL to set the inverter to 'Solar' mode (val=1)."""
-    return (
-        f"{BASE_URL}?sign=df5476429be8d15e10b56046a8d487208142e5e4&salt=1757519959751"
-        f"&token={token}&action=ctrlDevice&source=1&pn={PN}&sn={SN}&devcode={DEVCODE}"
-        f"&devaddr=5&id=los_output_source_priority&val=1&i18n=en_US"
-    )
+def call_api(action):
+    """
+    Looks up the requested action, formats the URL with the token,
+    and makes the API call.
+    """
+    if not INVERTER_TOKEN:
+        logger.critical("FATAL ERROR: The INVERTER_TOKEN secret is not configured in GitHub.")
+        sys.exit(1) # Exit with an error code
 
-def set_sbu_mode_url(token):
-    """Returns the URL to set the inverter to 'SBU' mode (val=2)."""
-    return (
-        f"{BASE_URL}?sign=a436acce54f3fc3403c05fc39720e95daf5584c1&salt=1757520016839"
-        f"&token={token}&action=ctrlDevice&source=1&pn={PN}&sn={SN}&devcode={DEVCODE}"
-        f"&devaddr=5&id=los_output_source_priority&val=2&i18n=en_US"
-    )
+    if action not in URL_CONFIG:
+        logger.error(f"Invalid action specified: '{action}'. Must be one of {list(URL_CONFIG.keys())}")
+        sys.exit(1)
 
-def call_api(url, action_description):
-    """A helper function to make API calls and handle responses."""
-    print(f"Attempting to: {action_description}")
+    config = URL_CONFIG[action]
+    url = config['url'].format(token=INVERTER_TOKEN)
+    description = config['description']
+    
+    logger.info(f"Executing job: {description}")
+
     try:
         response = requests.get(url, timeout=30)
-        response.raise_for_status()  # Raises an exception for bad status codes (4xx or 5xx)
+        response.raise_for_status() # Check for HTTP errors like 404 or 500
         data = response.json()
-        print(f"SUCCESS: API Response: {data}")
-        if data.get("err") != 0:
-            print(f"WARNING: API returned an error: {data.get('desc')}")
-        return data
-    except requests.exceptions.RequestException as e:
-        print(f"ERROR: Could not connect to API. Details: {e}")
-        return None
 
-def run_scheduled_logic():
-    """
-    This function contains the original time-based logic for scheduled runs.
-    """
-    # Set the timezone to your local time (Bangkok, Thailand)
-    # List of timezones: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-    local_timezone = pytz.timezone("Asia/Bangkok")
-    current_time = datetime.datetime.now(local_timezone)
-    current_hour = current_time.hour
-
-    print(f"Script run at: {current_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    print(f"Current hour in your timezone is: {current_hour}")
-
-    # --- Logic to decide which mode to set ---
-    # We define a "morning" window and an "evening" window.
-    # This makes the script work even if it runs a few minutes late.
-    if 5 <= current_hour < 15:
-        # It's morning, set to Solar mode
-        print("Time is in the morning window (5 AM - 3 PM). Setting to SOLAR mode.")
-        call_api(set_solar_mode_url(API_TOKEN), "Set output source to SOLAR")
-    elif 16 <= current_hour < 24:
-        # It's evening, set to SBU mode
-        print("Time is in the evening window (4 PM - 0 AM). Setting to SBU mode.")
-        call_api(set_sbu_mode_url(API_TOKEN), "Set output source to SBU")
-    else:
-        # It's not the scheduled time, do nothing
-        print("Not within a scheduled action window. No action will be taken.")
-
-
-def main():
-    """
-    Main function to run the inverter control logic.
-    Checks for command-line arguments to run specific functions manually.
-    If no arguments are provided, it runs the default scheduled logic.
-    """
-    if not API_TOKEN:
-        print("FATAL ERROR: INVERTER_TOKEN environment variable not set.")
-        print("Please configure the secret in your GitHub repository settings.")
-        return
-
-    # Check if a command-line argument was provided (e.g., "status", "solar", "sbu")
-    if len(sys.argv) > 1:
-        command = sys.argv[1].lower()
-        print(f"Manual command received: '{command}'")
-        if command == "status":
-            call_api(get_status_url(API_TOKEN), "Get inverter status")
-        elif command == "solar":
-            call_api(set_solar_mode_url(API_TOKEN), "Manually set output source to SOLAR")
-        elif command == "sbu":
-            call_api(set_sbu_mode_url(API_TOKEN), "Manually set output source to SBU")
+        if data.get("err") == 0:
+            logger.info(f"✅ SUCCESS: API call for '{description}' was successful.")
         else:
-            print(f"Error: Unknown command '{command}'. Valid commands are: status, solar, sbu.")
-    else:
-        # No command provided, run the default time-based logic for the schedule
-        print("No manual command detected. Running scheduled logic.")
-        run_scheduled_logic()
+            logger.warning(f"⚠️ WARNING: API call succeeded, but server reported an error: {data.get('desc', 'No description')}")
+        
+        logger.info(f"   Full API Response: {data}")
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ ERROR: Network request failed for '{description}'. Details: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) != 2:
+        print("Usage: python inverter_control.py <action>")
+        print("Available actions: read-status, set-solar, set-sbu")
+        sys.exit(1)
+    
+    action_to_run = sys.argv[1]
+    call_api(action_to_run)
 
