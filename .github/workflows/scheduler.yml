@@ -1,27 +1,38 @@
 name: Inverter Control Scheduler
 
 on:
-  # This allows you to run the workflow manually from the Actions tab for testing
   workflow_dispatch:
-
   schedule:
-    # IMPORTANT: Times are in UTC. Thailand is UTC+7.
-
-    # Schedule for "Set to Solar Mode" at 05:00 Thai time
-    # 05:00 Bangkok (UTC+7) is 22:00 UTC on the *previous* day.
-    - cron: '0 22 * * *'
-
-    # Schedule for "Set to SBU Mode" at 17:45 (5:45 PM) Thai time
-    # 17:45 Bangkok (UTC+7) is 10:45 UTC on the *same* day.
-    - cron: '45 10 * * *'
-
-    # Schedule for "Read Status" at the top of every hour
-    - cron: '0 * * * *'
+    # These triggers wake up the workflow at the required times.
+    # The logic to decide which action to run is inside the job itself.
+    - cron: '0 22 * * *'    # Trigger for 05:00 Bangkok time
+    - cron: '45 10 * * *'   # Trigger for 17:45 Bangkok time
+    - cron: '0 * * * *'     # Trigger for hourly status check
 
 jobs:
   run-scheduled-task:
     runs-on: ubuntu-latest
     steps:
+      - name: Get current date and time in UTC
+        id: date
+        run: |
+          echo "day=$(date -u +'%d')" >> $GITHUB_OUTPUT
+          echo "hour=$(date -u +'%H')" >> $GITHUB_OUTPUT
+          echo "minute=$(date -u +'%M')" >> $GITHUB_OUTPUT
+
+      - name: Check if today is an automation day
+        id: check_day
+        run: |
+          day=$((10#${{ steps.date.outputs.day }}))
+          echo "Today is day $day of the month (UTC)."
+          if (( (day >= 1 && day <= 22) || (day >= 27 && day <= 31) )); then
+            echo "Automation is ENABLED today."
+            echo "run_today=true" >> $GITHUB_OUTPUT
+          else
+            echo "Automation is SKIPPED today (days 23-26)."
+            echo "run_today=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -33,21 +44,20 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      # Determine which task to run based on the scheduled cron time
-      - name: Set Solar Mode (05:00 Bangkok Time)
-        if: github.event.schedule == '0 22 * * *'
+      - name: Set Solar Mode (05:00 Bangkok Time = 22:00 UTC)
+        if: steps.check_day.outputs.run_today == 'true' && steps.date.outputs.hour == '22' && steps.date.outputs.minute == '00'
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
         run: python inverter_control.py set-solar
 
-      - name: Set SBU Mode (17:45 Bangkok Time)
-        if: github.event.schedule == '45 10 * * *'
+      - name: Set SBU Mode (17:45 Bangkok Time = 10:45 UTC)
+        if: steps.check_day.outputs.run_today == 'true' && steps.date.outputs.hour == '10' && steps.date.outputs.minute == '45'
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
         run: python inverter_control.py set-sbu
 
       - name: Read Status (Hourly)
-        if: github.event.schedule == '0 * * * *'
+        if: steps.check_day.outputs.run_today == 'true' && steps.date.outputs.minute == '00'
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
         run: python inverter_control.py read-status
