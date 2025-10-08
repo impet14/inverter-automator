@@ -3,61 +3,109 @@ name: Inverter Control Scheduler
 on:
   workflow_dispatch:
   schedule:
-    # These triggers wake up the workflow at the required times.
-    # The logic to decide which action to run is inside the job itself.
-    - cron: '0 22 * * *'    # Trigger for 05:00 Bangkok time
-    - cron: '45 10 * * *'   # Trigger for 17:45 Bangkok time
-    - cron: '0 * * * *'     # Trigger for hourly status check
+    # Solar Control Retries: 05:00, 05:15, 05:30 (Bangkok) -> 22:00, 22:15, 22:30 (UTC)
+    - cron: '0,15,30 22 * * *'
+
+    # SBU Control Retries: 17:45, 18:00, 18:15 (Bangkok) -> 10:45, 11:00, 11:15 (UTC)
+    - cron: '45 10 * * *'
+    - cron: '0,15 11 * * *'
+
+    # Hourly Status Check
+    - cron: '0 * * * *'
 
 jobs:
-  run-scheduled-task:
+  # ===============================================================
+  #  JOB 1: Set Inverter to SOLAR Mode (with retries)
+  # ===============================================================
+  set-solar-mode:
+    name: '☀️ Set Solar Mode'
+    if: github.event.schedule == '0,15,30 22 * * *'
     runs-on: ubuntu-latest
     steps:
-      - name: Get current date and time in UTC
-        id: date
-        run: |
-          echo "day=$(date -u +'%d')" >> $GITHUB_OUTPUT
-          echo "hour=$(date -u +'%H')" >> $GITHUB_OUTPUT
-          echo "minute=$(date -u +'%M')" >> $GITHUB_OUTPUT
-
       - name: Check if today is an automation day
         id: check_day
         run: |
-          day=$((10#${{ steps.date.outputs.day }}))
-          echo "Today is day $day of the month (UTC)."
-          if (( (day >= 1 && day <= 22) || (day >= 27 && day <= 31) )); then
-            echo "Automation is ENABLED today."
-            echo "run_today=true" >> $GITHUB_OUTPUT
-          else
+          day=$(date -u +'%d')
+          if [[ $day -ge 23 && $day -le 26 ]]; then
             echo "Automation is SKIPPED today (days 23-26)."
             echo "run_today=false" >> $GITHUB_OUTPUT
+          else
+            echo "Automation is ENABLED today."
+            echo "run_today=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout code
+        if: steps.check_day.outputs.run_today == 'true'
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: pip install requests
-
-      - name: Set Solar Mode (05:00 Bangkok Time = 22:00 UTC)
-        if: steps.check_day.outputs.run_today == 'true' && steps.date.outputs.hour == '22' && steps.date.outputs.minute == '00'
+      - name: Run Solar Command
+        if: steps.check_day.outputs.run_today == 'true'
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
-        run: python inverter_control.py set-solar
+        run: |
+          pip install requests
+          python inverter_control.py set-solar
 
-      - name: Set SBU Mode (17:45 Bangkok Time = 10:45 UTC)
-        if: steps.check_day.outputs.run_today == 'true' && steps.date.outputs.hour == '10' && steps.date.outputs.minute == '45'
+  # ===============================================================
+  #  JOB 2: Set Inverter to SBU Mode (with retries)
+  # ===============================================================
+  set-sbu-mode:
+    name: '🔋 Set SBU Mode'
+    if: github.event.schedule == '45 10 * * *' || github.event.schedule == '0,15 11 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if today is an automation day
+        id: check_day
+        run: |
+          day=$(date -u +'%d')
+          if [[ $day -ge 23 && $day -le 26 ]]; then
+            echo "Automation is SKIPPED today (days 23-26)."
+            echo "run_today=false" >> $GITHUB_OUTPUT
+          else
+            echo "Automation is ENABLED today."
+            echo "run_today=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout code
+        if: steps.check_day.outputs.run_today == 'true'
+        uses: actions/checkout@v4
+
+      - name: Run SBU Command
+        if: steps.check_day.outputs.run_today == 'true'
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
-        run: python inverter_control.py set-sbu
+        run: |
+          pip install requests
+          python inverter_control.py set-sbu
 
-      - name: Read Status (Hourly)
-        if: steps.check_day.outputs.run_today == 'true' && steps.date.outputs.minute == '00'
+  # ===============================================================
+  #  JOB 3: Read Inverter Status (hourly)
+  # ===============================================================
+  read-status:
+    name: '📊 Read Status'
+    if: github.event.schedule == '0 * * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if today is an automation day
+        id: check_day
+        run: |
+          day=$(date -u +'%d')
+          if [[ $day -ge 23 && $day -le 26 ]]; then
+            echo "Automation is SKIPPED today (days 23-26)."
+            echo "run_today=false" >> $GITHUB_OUTPUT
+          else
+            echo "Automation is ENABLED today."
+            echo "run_today=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout code
+        if: steps.check_day.outputs.run_today == 'true'
+        uses: actions/checkout@v4
+
+      - name: Run Read Status Command
+        if: steps.check_day.outputs.run_today == 'true'
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
-        run: python inverter_control.py read-status
+        run: |
+          pip install requests
+          python inverter_control.py read-status
