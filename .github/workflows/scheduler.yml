@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # Solar Control Retries: 07:20, 07:30, 07:40 (Bangkok) -> 00:20, 00:30, 00:40 (UTC)
-    - cron: '20,30,40 0 * * *'
+    - cron: '10,20,30 0 * * *'
 
     # SBU Control Retries: 17:45, 18:00, 18:15 (Bangkok) -> 10:45, 11:00, 11:15 (UTC)
     - cron: '45 10 * * *'
@@ -20,7 +20,7 @@ jobs:
   # ===============================================================
   set-solar-mode:
     name: '☀️ Set Solar Mode'
-    if: github.event.schedule == '20,30,40 0 * * *'
+    if: github.event.schedule == '10,20,30 0 * * *'
     runs-on: ubuntu-latest
     steps:
       - name: Check if today is an automation day
