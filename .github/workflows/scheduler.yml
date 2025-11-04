@@ -3,15 +3,18 @@ name: Inverter Control Scheduler
 on:
   workflow_dispatch:
   schedule:
-    # Solar Control Retries: 07:20, 07:30, 07:40 (Bangkok) -> 00:20, 00:30, 00:40 (UTC)
+    # Solar Control Retries — run at 07:10, 07:20, 07:30 (Asia/Bangkok = UTC+7)
+    # Convert to UTC: 07:10 BKK -> 00:10 UTC, etc.
     - cron: '10,20,30 0 * * *'
 
     # SBU Control Retries: 17:45, 18:00, 18:15 (Bangkok) -> 10:45, 11:00, 11:15 (UTC)
     - cron: '45 10 * * *'
     - cron: '0,15 11 * * *'
 
-    # Hourly Status Check (top of the hour, UTC)
-    - cron: '0 * * * *'
+    # Read Status: every 2 hours at minute 0 (UTC)
+    # (Thailand local times will be 07:00, 09:00, 11:00, ... if you want specific Bangkok-local alignment,
+    # schedule times should be converted to UTC. This keeps the top-of-hour base but runs every 2 hours.)
+    - cron: '0 */2 * * *'
 
 jobs:
   # ===============================================================
@@ -81,16 +84,16 @@ jobs:
           python inverter_control.py set-sbu
 
   # ===============================================================
-  #  JOB 3: Read Inverter Status (hourly)
-  #  (Runs EVERY day, every hour)
+  #  JOB 3: Read Inverter Status (every 2 hours)
+  #  (Runs EVERY day, every 2 hours)
   # ===============================================================
   read-status:
     name: '📊 Read Status'
-    if: github.event.schedule == '0 * * * *'
+    if: github.event.schedule == '0 */2 * * *'
     runs-on: ubuntu-latest
     steps:
       # Note: The day check (23-26) has been removed from this job
-      # This job will now run every hour, every day.
+      # This job will now run every 2 hours, every day.
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -106,4 +109,3 @@ jobs:
         run: |
           python -m pip install --upgrade pip requests
           python inverter_control.py read-status
-
