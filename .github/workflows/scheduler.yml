@@ -3,38 +3,37 @@ name: Inverter Control Scheduler
 on:
   workflow_dispatch:
   schedule:
-    # Solar Control Retries — run at 07:10, 07:20, 07:30 (Asia/Bangkok = UTC+7)
-    # Convert to UTC: 07:10 BKK -> 00:10 UTC, etc.
-    - cron: '10,20,30 0 * * *'
+    # Solar Control Retries — run at 06:10, 06:20, 06:30 (Asia/Bangkok = UTC+7)
+    # Convert to UTC: 06:10 BKK -> 23:10 UTC (previous day), etc.
+    - cron: '10,20,30 23 * * *'
 
     # SBU Control Retries: 17:45, 18:00, 18:15 (Bangkok) -> 10:45, 11:00, 11:15 (UTC)
     - cron: '45 10 * * *'
     - cron: '0,15 11 * * *'
 
     # Read Status: every 2 hours at minute 0 (UTC)
-    # (Thailand local times will be 07:00, 09:00, 11:00, ... if you want specific Bangkok-local alignment,
-    # schedule times should be converted to UTC. This keeps the top-of-hour base but runs every 2 hours.)
     - cron: '0 */2 * * *'
 
 jobs:
   # ===============================================================
   #  JOB 1: Set Inverter to SOLAR Mode (with retries)
-  #  (SKIPS running on days 23-26)
+  #  (SKIPS running on Thailand dates 23-26)
   # ===============================================================
   set-solar-mode:
     name: '☀️ Set Solar Mode'
-    if: github.event.schedule == '10,20,30 0 * * *'
+    if: github.event.schedule == '10,20,30 23 * * *'
     runs-on: ubuntu-latest
     steps:
-      - name: Check if today is an automation day
+      - name: Check if today is an automation day (Thailand local date)
         id: check_day
         run: |
-          day=$(date -u +'%d')
+          # Use Asia/Bangkok timezone when evaluating the day so the skip applies to Thailand local dates.
+          day=$(TZ="Asia/Bangkok" date +'%d')
           if [[ $day -ge 23 && $day -le 26 ]]; then
-            echo "Automation is SKIPPED today (days 23-26)."
+            echo "Automation is SKIPPED today (Thailand date $day is between 23-26)."
             echo "run_today=false" >> $GITHUB_OUTPUT
           else
-            echo "Automation is ENABLED today."
+            echo "Automation is ENABLED today (Thailand date $day)."
             echo "run_today=true" >> $GITHUB_OUTPUT
           fi
 
@@ -65,9 +64,7 @@ jobs:
     if: github.event.schedule == '45 10 * * *' || github.event.schedule == '0,15 11 * * *'
     runs-on: ubuntu-latest
     steps:
-      # Note: The day check (23-26) has been removed from this job
-      # This job will now run every day it is scheduled.
-
+      # Note: The day check (23-26) has been intentionally removed from this job.
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -92,9 +89,6 @@ jobs:
     if: github.event.schedule == '0 */2 * * *'
     runs-on: ubuntu-latest
     steps:
-      # Note: The day check (23-26) has been removed from this job
-      # This job will now run every 2 hours, every day.
-
       - name: Checkout code
         uses: actions/checkout@v4
 
