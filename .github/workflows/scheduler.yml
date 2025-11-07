@@ -27,7 +27,8 @@ jobs:
   # ===============================================================
   set-solar-mode:
     name: '☀️ Set Solar Mode'
-    if: github.event.schedule == '10,20,30 23 * * *'
+    # Allow running either on schedule or when manually triggered via workflow_dispatch
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '10,20,30 23 * * *'
     runs-on: ubuntu-latest
     env:
       INVERTER_MAX_RETRIES: ${{ env.INVERTER_MAX_RETRIES }}
@@ -74,11 +75,11 @@ PY
 
   # ===============================================================
   #  JOB 2: Set Inverter to SBU Mode (with retries)
-  #  (Runs EVERY day at the scheduled time)
+  #  (Runs EVERY scheduled time and also on manual dispatch)
   # ===============================================================
   set-sbu-mode:
     name: '🔋 Set SBU Mode'
-    if: github.event.schedule == '45 10 * * *' || github.event.schedule == '0,15 11 * * *'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '45 10 * * *' || github.event.schedule == '0,15 11 * * *'
     runs-on: ubuntu-latest
     env:
       INVERTER_MAX_RETRIES: ${{ env.INVERTER_MAX_RETRIES }}
@@ -101,11 +102,11 @@ PY
 
   # ===============================================================
   #  JOB 3: Read Inverter Status (every 2 hours)
-  #  (Runs EVERY day, every 2 hours)
+  #  (Runs EVERY day, every 2 hours, and on manual dispatch)
   # ===============================================================
   read-status:
     name: '📊 Read Status'
-    if: github.event.schedule == '0 */2 * * *'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 */2 * * *'
     runs-on: ubuntu-latest
     env:
       INVERTER_REQUEST_TIMEOUT: ${{ env.INVERTER_REQUEST_TIMEOUT }}
