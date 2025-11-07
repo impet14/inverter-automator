@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # Solar Control Retries — run at 06:10, 06:20, 06:30 (Asia/Bangkok = UTC+7)
-    # Convert to UTC: 06:10 BKK -> 23:10 UTC (previous day), etc.
+    # 06:10 BKK -> 23:10 UTC (previous day)
     - cron: '10,20,30 23 * * *'
 
     # SBU Control Retries: 17:45, 18:00, 18:15 (Bangkok) -> 10:45, 11:00, 11:15 (UTC)
@@ -13,6 +13,12 @@ on:
 
     # Read Status: every 2 hours at minute 0 (UTC)
     - cron: '0 */2 * * *'
+
+# Optional: default env values for retry/timeout knobs (override per-job if needed)
+env:
+  INVERTER_MAX_RETRIES: '5'
+  INVERTER_BACKOFF_FACTOR: '2.0'
+  INVERTER_REQUEST_TIMEOUT: '45'
 
 jobs:
   # ===============================================================
@@ -23,12 +29,18 @@ jobs:
     name: '☀️ Set Solar Mode'
     if: github.event.schedule == '10,20,30 23 * * *'
     runs-on: ubuntu-latest
+    env:
+      INVERTER_MAX_RETRIES: ${{ env.INVERTER_MAX_RETRIES }}
+      INVERTER_BACKOFF_FACTOR: ${{ env.INVERTER_BACKOFF_FACTOR }}
+      INVERTER_REQUEST_TIMEOUT: ${{ env.INVERTER_REQUEST_TIMEOUT }}
+      INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
     steps:
       - name: Check if today is an automation day (Thailand local date)
         id: check_day
         run: |
-          # Use Asia/Bangkok timezone when evaluating the day so the skip applies to Thailand local dates.
+          # Evaluate the day using Asia/Bangkok timezone to apply skip correctly on local dates.
           day=$(TZ="Asia/Bangkok" date +'%d')
+          echo "Thailand local day: $day"
           if [[ $day -ge 23 && $day -le 26 ]]; then
             echo "Automation is SKIPPED today (Thailand date $day is between 23-26)."
             echo "run_today=false" >> $GITHUB_OUTPUT
@@ -49,10 +61,15 @@ jobs:
 
       - name: Run Solar Command
         if: steps.check_day.outputs.run_today == 'true'
-        env:
-          INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
         run: |
           python -m pip install --upgrade pip requests
+          # Diagnostic: print Bangkok-local timestamp
+          python - <<'PY'
+from datetime import datetime
+import zoneinfo
+tz = zoneinfo.ZoneInfo("Asia/Bangkok")
+print("Bangkok local time at run:", datetime.now(tz).isoformat())
+PY
           python inverter_control.py set-solar
 
   # ===============================================================
@@ -63,8 +80,12 @@ jobs:
     name: '🔋 Set SBU Mode'
     if: github.event.schedule == '45 10 * * *' || github.event.schedule == '0,15 11 * * *'
     runs-on: ubuntu-latest
+    env:
+      INVERTER_MAX_RETRIES: ${{ env.INVERTER_MAX_RETRIES }}
+      INVERTER_BACKOFF_FACTOR: ${{ env.INVERTER_BACKOFF_FACTOR }}
+      INVERTER_REQUEST_TIMEOUT: ${{ env.INVERTER_REQUEST_TIMEOUT }}
+      INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
     steps:
-      # Note: The day check (23-26) has been intentionally removed from this job.
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -74,8 +95,6 @@ jobs:
           python-version: '3.11'
 
       - name: Run SBU Command
-        env:
-          INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
         run: |
           python -m pip install --upgrade pip requests
           python inverter_control.py set-sbu
@@ -88,6 +107,9 @@ jobs:
     name: '📊 Read Status'
     if: github.event.schedule == '0 */2 * * *'
     runs-on: ubuntu-latest
+    env:
+      INVERTER_REQUEST_TIMEOUT: ${{ env.INVERTER_REQUEST_TIMEOUT }}
+      INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -98,8 +120,6 @@ jobs:
           python-version: '3.11'
 
       - name: Run Read Status Command
-        env:
-          INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
         run: |
           python -m pip install --upgrade pip requests
           python inverter_control.py read-status
