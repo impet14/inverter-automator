@@ -2,104 +2,77 @@ name: Inverter Control Scheduler
 
 on:
   workflow_dispatch:
+    inputs:
+      action_to_run:
+        description: 'Select Command'
+        required: true
+        default: 'read-status'
+        type: choice
+        options:
+          - read-status
+          - set-solar
+          - set-sbu
+      ignore_date_skip:
+        description: 'Override date restriction (23rd-26th)?'
+        type: boolean
+        default: true
+
   schedule:
-    # Solar Control Retries — run at 06:10, 06:20, 06:30 (Asia/Bangkok = UTC+7)
-    # Convert to UTC: 06:10 BKK -> 23:10 UTC (previous day), etc.
-    - cron: '10,20,30 23 * * *'
-
-    # SBU Control Retries: 17:45, 18:00, 18:15 (Bangkok) -> 10:45, 11:00, 11:15 (UTC)
-    - cron: '45 10 * * *'
-    - cron: '0,15 11 * * *'
-
-    # Read Status: every 2 hours at minute 0 (UTC)
-    - cron: '0 */2 * * *'
+    - cron: '10,20,30 23 * * *'  # Solar Logic
+    - cron: '45 10 * * *'        # SBU Logic
+    - cron: '0,15 11 * * *'      # SBU Logic
+    - cron: '0 */2 * * *'        # Status Check
 
 jobs:
-  # ===============================================================
-  #  JOB 1: Set Inverter to SOLAR Mode (with retries)
-  #  (SKIPS running on Thailand dates 23-26)
-  # ===============================================================
-  set-solar-mode:
-    name: '☀️ Set Solar Mode'
-    if: github.event.schedule == '10,20,30 23 * * *'
+  execute-command:
     runs-on: ubuntu-latest
     steps:
-      - name: Check if today is an automation day (Thailand local date)
-        id: check_day
+      - name: 🔍 Resolve Context
+        id: ctx
         run: |
-          # Use Asia/Bangkok timezone when evaluating the day so the skip applies to Thailand local dates.
-          day=$(TZ="Asia/Bangkok" date +'%d')
-          if [[ $day -ge 23 && $day -le 26 ]]; then
-            echo "Automation is SKIPPED today (Thailand date $day is between 23-26)."
-            echo "run_today=false" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "action=${{ github.event.inputs.action_to_run }}" >> $GITHUB_OUTPUT
+            echo "force=${{ github.event.inputs.ignore_date_skip }}" >> $GITHUB_OUTPUT
           else
-            echo "Automation is ENABLED today (Thailand date $day)."
-            echo "run_today=true" >> $GITHUB_OUTPUT
+            echo "force=false" >> $GITHUB_OUTPUT
+            CRON="${{ github.event.schedule }}"
+            if [[ "$CRON" == "10,20,30 23 * * *" ]]; then
+              echo "action=set-solar" >> $GITHUB_OUTPUT
+            elif [[ "$CRON" == "45 10 * * *" || "$CRON" == "0,15 11 * * *" ]]; then
+              echo "action=set-sbu" >> $GITHUB_OUTPUT
+            else
+              echo "action=read-status" >> $GITHUB_OUTPUT
+            fi
           fi
 
-      - name: Checkout code
-        if: steps.check_day.outputs.run_today == 'true'
+      - name: 📅 Date Check
+        id: gate
+        run: |
+          DAY=$(TZ="Asia/Bangkok" date +'%d')
+          ACTION="${{ steps.ctx.outputs.action }}"
+          FORCE="${{ steps.ctx.outputs.force }}"
+          
+          if [[ "$ACTION" == "set-solar" && "$FORCE" == "false" && $DAY -ge 23 && $DAY -le 26 ]]; then
+            echo "proceed=false" >> $GITHUB_OUTPUT
+            echo "Skipping scheduled Solar task for date: $DAY"
+          else
+            echo "proceed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        if: steps.gate.outputs.proceed == 'true'
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        if: steps.check_day.outputs.run_today == 'true'
+      - name: Setup Python
+        if: steps.gate.outputs.proceed == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Run Solar Command
-        if: steps.check_day.outputs.run_today == 'true'
+      - name: Run
+        if: steps.gate.outputs.proceed == 'true'
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
         run: |
-          python -m pip install --upgrade pip requests
-          python inverter_control.py set-solar
-
-  # ===============================================================
-  #  JOB 2: Set Inverter to SBU Mode (with retries)
-  #  (Runs EVERY day at the scheduled time)
-  # ===============================================================
-  set-sbu-mode:
-    name: '🔋 Set SBU Mode'
-    if: github.event.schedule == '45 10 * * *' || github.event.schedule == '0,15 11 * * *'
-    runs-on: ubuntu-latest
-    steps:
-      # Note: The day check (23-26) has been intentionally removed from this job.
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Run SBU Command
-        env:
-          INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
-        run: |
-          python -m pip install --upgrade pip requests
-          python inverter_control.py set-sbu
-
-  # ===============================================================
-  #  JOB 3: Read Inverter Status (every 2 hours)
-  #  (Runs EVERY day, every 2 hours)
-  # ===============================================================
-  read-status:
-    name: '📊 Read Status'
-    if: github.event.schedule == '0 */2 * * *'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Run Read Status Command
-        env:
-          INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
-        run: |
-          python -m pip install --upgrade pip requests
-          python inverter_control.py read-status
+          pip install requests
+          python inverter_control.py ${{ steps.ctx.outputs.action }}
