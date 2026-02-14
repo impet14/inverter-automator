@@ -21,7 +21,7 @@ jobs:
   # ===============================================================
   set-solar-mode:
     name: '☀️ Set Solar Mode'
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '10,20,30 23 * * *'
+    if: github.event.schedule == '10,20,30 23 * * *'
     runs-on: ubuntu-latest
     steps:
       - name: Check if today is an automation day (Thailand local date)
@@ -61,7 +61,7 @@ jobs:
   # ===============================================================
   set-sbu-mode:
     name: '🔋 Set SBU Mode'
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '45 10 * * *' || github.event.schedule == '0,15 11 * * *'
+    if: github.event.schedule == '45 10 * * *' || github.event.schedule == '0,15 11 * * *'
     runs-on: ubuntu-latest
     steps:
       # Note: The day check (23-26) has been intentionally removed from this job.
@@ -86,7 +86,7 @@ jobs:
   # ===============================================================
   read-status:
     name: '📊 Read Status'
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 */2 * * *'
+    if: github.event.schedule == '0 */2 * * *'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
