@@ -1,3 +1,4 @@
+# scheduler.yml - GitHub Actions workflow for scheduling inverter control tasks based on time and user input.
 name: Inverter Control Scheduler
 
 on:
@@ -73,6 +74,8 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
         run: |
           pip install requests
           python inverter_control.py ${{ steps.ctx.outputs.action }}
