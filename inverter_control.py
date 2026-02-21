@@ -110,12 +110,14 @@ def call_api(action: str):
             # ตรวจสอบเงื่อนไขสำเร็จ (err == 0)
             if response.ok and data.get("err") == 0:
                 logger.info(f"API Success: {data}")
-                send_line_debug(description, response.status_code, data, is_success=True)
+                if action != 'read-status':
+                    send_line_debug(description, response.status_code, data, is_success=True)
                 return
             else:
                 logger.warning(f"API Failure: {data}")
                 if attempt == attempts:
-                    send_line_debug(description, response.status_code, data, is_success=False)
+                    if action != 'read-status':
+                        send_line_debug(description, response.status_code, data, is_success=False)
                     sys.exit(1)
                 time.sleep(5)
 
@@ -123,7 +125,8 @@ def call_api(action: str):
             error_info = {"exception": str(e)}
             logger.error(f"Request Exception: {e}")
             if attempt == attempts:
-                send_line_debug(description, "EXCEPTION", error_info, is_success=False)
+                if action != 'read-status':
+                    send_line_debug(description, "EXCEPTION", error_info, is_success=False)
                 sys.exit(1)
             time.sleep(2)
 
