@@ -129,17 +129,18 @@ Edit `.github/workflows/scheduler.yml` to match your timezone and solar patterns
 
 ```yaml
 schedule:
-  - cron: '10,20,30 23 * * *'  # ☀️ Set Solar priority (UTC)
+  - cron: '10,20,30 23 * * *'  # ☀️ Set Solar priority - Early (UTC)
+  - cron: '0,10,20 2 * * *'    # ☀️ Set Solar priority - Late (UTC)
   - cron: '45 10 * * *'        # 🔋 Set SBU priority (UTC)
   - cron: '0,15 11 * * *'      # 🔋 Set SBU priority (UTC)
   - cron: '0 */2 * * *'        # 📊 Status check every 2h
 ```
 
-> **💡 Tip:** All cron times are in **UTC**. For Bangkok (UTC+7), `23:10 UTC` = `06:10 local time`.
+> **💡 Tip:** All cron times are in **UTC**. For Bangkok (UTC+7), `23:10 UTC` = `06:10 local time`, and `02:00 UTC` = `09:00 local time`.
 
 ### 4. Enable Actions
 
-Go to the **Actions** tab in your forked repo and enable workflows. That's it — your inverter is now automated! 🎉
+Go to the Actions tab in your forked repo and enable workflows. That's it — your inverter is now automated! 🎉
 
 ---
 
@@ -149,14 +150,15 @@ The default schedule is optimized for **Southeast Asia / tropical regions** (UTC
 
 | Local Time (UTC+7) | Action | Purpose |
 |---|---|---|
-| 06:10, 06:20, 06:30 | `set-solar` ☀️ | Switch to solar-first as sun rises |
+| 06:10, 06:20, 06:30 | `set-solar` ☀️ | Switch to solar-first as sun rises (Runs only on days 1–22 and 27–31) |
+| 09:00, 09:10, 09:20 | `set-solar` ☀️ | Switch to solar-first during billing period (Runs only on days 23–26) |
 | 17:45 | `set-sbu` 🔋 | Switch to battery-first before sunset |
 | 18:00, 18:15 | `set-sbu` 🔋 | Retry SBU in case of API failure |
 | Every 2 hours | `read-status` 📊 | Silent health check (no LINE notification) |
 
 ### Billing Period Logic
 
-To avoid unnecessary solar switching during peak utility billing adjustment days, `set-solar` is **automatically skipped on the 23rd–26th of each month** (unless manually overridden via `workflow_dispatch`).
+To avoid unnecessary early solar switching during utility billing adjustment days, `set-solar` starts later at **09:00 AM local time** instead of early morning on the **23rd–26th of each month** (unless manually overridden via `workflow_dispatch`).
 
 ---
 

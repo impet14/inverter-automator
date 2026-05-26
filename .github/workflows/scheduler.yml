@@ -19,7 +19,8 @@ on:
         default: true
 
   schedule:
-    - cron: '10,20,30 23 * * *'  # Solar Logic
+    - cron: '10,20,30 23 * * *'  # Solar Logic (Early Morning: 06:10, 06:20, 06:30 local time)
+    - cron: '0,10,20 2 * * *'    # Solar Logic (Late Morning: 09:00, 09:10, 09:20 local time)
     - cron: '45 10 * * *'        # SBU Logic
     - cron: '0,15 11 * * *'      # SBU Logic
     - cron: '0 */2 * * *'        # Status Check
@@ -37,7 +38,7 @@ jobs:
           else
             echo "force=false" >> $GITHUB_OUTPUT
             CRON="${{ github.event.schedule }}"
-            if [[ "$CRON" == "10,20,30 23 * * *" ]]; then
+            if [[ "$CRON" == "10,20,30 23 * * *" || "$CRON" == "0,10,20 2 * * *" ]]; then
               echo "action=set-solar" >> $GITHUB_OUTPUT
             elif [[ "$CRON" == "45 10 * * *" || "$CRON" == "0,15 11 * * *" ]]; then
               echo "action=set-sbu" >> $GITHUB_OUTPUT
@@ -49,13 +50,29 @@ jobs:
       - name: 📅 Date Check
         id: gate
         run: |
-          DAY=$(TZ="Asia/Bangkok" date +'%d')
+          DAY_STR=$(TZ="Asia/Bangkok" date +'%d')
+          DAY=$((10#$DAY_STR))
+          HOUR_STR=$(TZ="Asia/Bangkok" date +'%H')
+          HOUR=$((10#$HOUR_STR))
           ACTION="${{ steps.ctx.outputs.action }}"
           FORCE="${{ steps.ctx.outputs.force }}"
           
-          if [[ "$ACTION" == "set-solar" && "$FORCE" == "false" && $DAY -ge 23 && $DAY -le 26 ]]; then
-            echo "proceed=false" >> $GITHUB_OUTPUT
-            echo "Skipping scheduled Solar task for date: $DAY"
+          if [[ "$ACTION" == "set-solar" && "$FORCE" == "false" ]]; then
+            if [[ $DAY -ge 23 && $DAY -le 26 ]]; then
+              if [[ $HOUR -ne 9 ]]; then
+                echo "proceed=false" >> $GITHUB_OUTPUT
+                echo "Skipping early scheduled Solar task for billing date: $DAY_STR (Hour: $HOUR_STR)"
+              else
+                echo "proceed=true" >> $GITHUB_OUTPUT
+              fi
+            else
+              if [[ $HOUR -ne 6 ]]; then
+                echo "proceed=false" >> $GITHUB_OUTPUT
+                echo "Skipping late scheduled Solar task for normal date: $DAY_STR (Hour: $HOUR_STR)"
+              else
+                echo "proceed=true" >> $GITHUB_OUTPUT
+              fi
+            fi
           else
             echo "proceed=true" >> $GITHUB_OUTPUT
           fi
