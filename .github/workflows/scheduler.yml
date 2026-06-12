@@ -20,9 +20,9 @@ on:
 
   schedule:
     - cron: '10,20,30 23 * * *'  # Solar Logic
-    - cron: '45 10 * * *'        # SBU Logic
+    - cron: '30 10 * * *'        # SBU Logic
     - cron: '0,15 11 * * *'      # SBU Logic
-    - cron: '0 */2 * * *'        # Status Check
+    - cron: '0 */4 * * *'        # Status Check
 
 jobs:
   execute-command:
@@ -39,7 +39,7 @@ jobs:
             CRON="${{ github.event.schedule }}"
             if [[ "$CRON" == "10,20,30 23 * * *" ]]; then
               echo "action=set-solar" >> $GITHUB_OUTPUT
-            elif [[ "$CRON" == "45 10 * * *" || "$CRON" == "0,15 11 * * *" ]]; then
+            elif [[ "$CRON" == "30 10 * * *" || "$CRON" == "0,15 11 * * *" ]]; then
               echo "action=set-sbu" >> $GITHUB_OUTPUT
             else
               echo "action=read-status" >> $GITHUB_OUTPUT
