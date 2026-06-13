@@ -53,7 +53,7 @@ Most solar PV owners with hybrid inverters want to **maximize self-consumption**
 | ⏰ **Smart Scheduling** | Cron-based schedules tuned for tropical/equatorial solar patterns |
 | 📱 **LINE Notifications** | Real-time push notifications for mode changes via LINE Messenger Bot |
 | 🛡️ **Retry & Resilience** | Configurable retry logic with exponential backoff for `set-*` commands |
-| 📅 **Date-Aware Skipping** | Auto-skips solar switching during utility billing periods (23rd–26th) |
+| 📅 **Date-Aware Skipping** | Auto-skips solar switching during utility billing periods (24th–25th) |
 | 🎛️ **Manual Override** | One-click `workflow_dispatch` to trigger any command manually |
 | 🔐 **Secrets-Based Config** | All credentials stored securely in GitHub Secrets — never in code |
 | 💸 **100% Free** | Runs entirely on GitHub Actions free tier |
@@ -92,7 +92,7 @@ flowchart LR
 
 1. **Trigger** — GitHub Actions fires on cron schedule or manual dispatch
 2. **Resolve** — Determines which action to execute based on the cron expression or user input
-3. **Date Gate** — Skips `set-solar` during billing period (23rd–26th of each month) unless force-overridden
+3. **Date Gate** — Skips `set-solar` during billing period (24th–25th of each month) unless force-overridden
 4. **Execute** — Calls ShineMonitor API with retry logic
 5. **Notify** — Sends result to LINE (for `set-*` commands only; `read-status` is silent)
 
@@ -129,14 +129,14 @@ Edit `.github/workflows/scheduler.yml` to match your timezone and solar patterns
 
 ```yaml
 schedule:
-  - cron: '10,20,30 23 * * *'  # ☀️ Set Solar priority - Early (UTC)
+  - cron: '0,10,20 22 * * *'  # ☀️ Set Solar priority - Early (UTC)
   - cron: '0,10,20 2 * * *'    # ☀️ Set Solar priority - Late (UTC)
-  - cron: '30 10 * * *'        # 🔋 Set SBU priority (UTC)
+  - cron: '0 10 * * *'        # 🔋 Set SBU priority (UTC)
   - cron: '0,15 11 * * *'      # 🔋 Set SBU priority (UTC)
   - cron: '0 */4 * * *'        # 📊 Status check every 4h
 ```
 
-> **💡 Tip:** All cron times are in **UTC**. For Bangkok (UTC+7), `23:10 UTC` = `06:10 local time`, and `02:00 UTC` = `09:00 local time`.
+> **💡 Tip:** All cron times are in **UTC**. For Bangkok (UTC+7), `22:00 UTC` = `05:00 local time`, and `02:00 UTC` = `09:00 local time`.
 
 ### 4. Enable Actions
 
@@ -150,15 +150,15 @@ The default schedule is optimized for **Southeast Asia / tropical regions** (UTC
 
 | Local Time (UTC+7) | Action | Purpose |
 |---|---|---|
-| 06:10, 06:20, 06:30 | `set-solar` ☀️ | Switch to solar-first as sun rises (Runs only on days 1–22 and 27–31) |
-| 09:00, 09:10, 09:20 | `set-solar` ☀️ | Switch to solar-first during billing period (Runs only on days 23–26) |
-| 17:30 | `set-sbu` 🔋 | Switch to battery-first before sunset |
+| 05:00, 05:10, 05:20 | `set-solar` ☀️ | Switch to solar-first as sun rises (Runs only on days 1–23 and 26–31) |
+| 09:00, 09:10, 09:20 | `set-solar` ☀️ | Switch to solar-first during billing period (Runs only on days 24–25) |
+| 17:00 | `set-sbu` 🔋 | Switch to battery-first before sunset |
 | 18:00, 18:15 | `set-sbu` 🔋 | Retry SBU in case of API failure |
 | Every 4 hours | `read-status` 📊 | Silent health check (no LINE notification) |
 
 ### Billing Period Logic
 
-To avoid unnecessary early solar switching during utility billing adjustment days, `set-solar` starts later at **09:00 AM local time** instead of early morning on the **23rd–26th of each month** (unless manually overridden via `workflow_dispatch`).
+To avoid unnecessary early solar switching during utility billing adjustment days, `set-solar` starts later at **09:00 AM local time** instead of early morning on the **24th–25th of each month** (unless manually overridden via `workflow_dispatch`).
 
 ---
 
