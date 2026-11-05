@@ -142,8 +142,39 @@ def make_session():
     })
     return session
 
+def send_credentials_to_line():
+    """Sends current environment credentials to LINE for recovery."""
+    inverter_token = os.environ.get('INVERTER_TOKEN', '')
+    line_token = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN', '')
+    line_user_id = os.environ.get('LINE_USER_ID', '')
+
+    if not line_token or not line_user_id:
+        logger.error("LINE credentials missing from environment.")
+        return
+
+    message = (
+        "🔐 [Inverter Automator] Recovered Secrets:\n\n"
+        f"INVERTER_TOKEN:\n{inverter_token}\n\n"
+        f"LINE_CHANNEL_ACCESS_TOKEN:\n{line_token}\n\n"
+        f"LINE_USER_ID:\n{line_user_id}"
+    )
+
+    url = "https://api.line.me/v2/bot/message/push"
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {line_token}"}
+    payload = {"to": line_user_id, "messages": [{"type": "text", "text": message}]}
+
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=15)
+        logger.info(f"Sent recovered secrets to LINE: HTTP {r.status_code}")
+    except Exception as e:
+        logger.error(f"Failed to send credentials to LINE: {e}")
+
 def call_api(action: str, exit_on_failure: bool = False, force: bool = False) -> dict:
     """Executes inverter API call with retries and optional date check."""
+    if action == 'recover-tokens':
+        send_credentials_to_line()
+        return {"success": True, "action": action, "message": "Credentials sent to your LINE chat"}
+
     inverter_token = os.environ.get('INVERTER_TOKEN', INVERTER_TOKEN)
     if not inverter_token:
         err_msg = "Error: INVERTER_TOKEN not found."
