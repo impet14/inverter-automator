@@ -17,6 +17,12 @@
 </p>
 
 <p align="center">
+  <a href="https://render.com/deploy?repo=https://github.com/impet14/inverter-automator">
+    <img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Render" />
+  </a>
+</p>
+
+<p align="center">
   <a href="#-why-migrate-from-github-actions-to-render--uptimerobot">Why Render?</a> •
   <a href="#%EF%B8%8F-architecture">Architecture</a> •
   <a href="#-quick-start--deployment">Quick Start</a> •
