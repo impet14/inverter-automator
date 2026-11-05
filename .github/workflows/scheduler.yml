@@ -1,5 +1,6 @@
-# scheduler.yml - GitHub Actions workflow for scheduling inverter control tasks based on time and user input.
-name: Inverter Control Scheduler
+# scheduler.yml - GitHub Actions workflow for manual/fallback inverter control tasks.
+# Note: Scheduled cron runs have been migrated to Render.com + UptimeRobot for 24/7 exact-time execution.
+name: Inverter Control (Manual Fallback)
 
 on:
   workflow_dispatch:
@@ -18,10 +19,11 @@ on:
         type: boolean
         default: true
 
-  schedule:
-    - cron: '0,10,20 21 * * *'  # Solar Logic
-    - cron: '0 10 * * *'        # SBU Logic
-    - cron: '0 */4 * * *'        # Status Check
+  # Schedule triggers migrated to Render 24/7 Web Service (kept commented out to prevent duplicate runs)
+  # schedule:
+  #   - cron: '0,10,20 21 * * *'  # Solar Logic (04:00, 04:10, 04:20 UTC+7)
+  #   - cron: '0 10 * * *'        # SBU Logic (17:00 UTC+7)
+  #   - cron: '0 */4 * * *'        # Status Check
 
 jobs:
   execute-command:
@@ -34,47 +36,31 @@ jobs:
             echo "action=${{ github.event.inputs.action_to_run }}" >> $GITHUB_OUTPUT
             echo "force=${{ github.event.inputs.ignore_date_skip }}" >> $GITHUB_OUTPUT
           else
+            echo "action=read-status" >> $GITHUB_OUTPUT
             echo "force=false" >> $GITHUB_OUTPUT
-            CRON="${{ github.event.schedule }}"
-            if [[ "$CRON" == "0,10,20 21 * * *" ]]; then
-              echo "action=set-solar" >> $GITHUB_OUTPUT
-            elif [[ "$CRON" == "0 10 * * *" ]]; then
-              echo "action=set-sbu" >> $GITHUB_OUTPUT
-            else
-              echo "action=read-status" >> $GITHUB_OUTPUT
-            fi
-          fi
-
-      - name: 📅 Date Check
-        id: gate
-        run: |
-          DAY=$(TZ="Asia/Bangkok" date +'%d')
-          ACTION="${{ steps.ctx.outputs.action }}"
-          FORCE="${{ steps.ctx.outputs.force }}"
-          
-          if [[ "$ACTION" == "set-solar" && "$FORCE" == "false" && $DAY -ge 24 && $DAY -le 25 ]]; then
-            echo "proceed=false" >> $GITHUB_OUTPUT
-            echo "Skipping scheduled Solar task for date: $DAY"
-          else
-            echo "proceed=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Checkout
-        if: steps.gate.outputs.proceed == 'true'
         uses: actions/checkout@v4
 
       - name: Setup Python
-        if: steps.gate.outputs.proceed == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Run
-        if: steps.gate.outputs.proceed == 'true'
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Inverter Command
         env:
           INVERTER_TOKEN: ${{ secrets.INVERTER_TOKEN }}
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          TIMEZONE: "Asia/Bangkok"
         run: |
-          pip install requests
-          python inverter_control.py ${{ steps.ctx.outputs.action }}
+          FORCE_FLAG=""
+          if [[ "${{ steps.ctx.outputs.force }}" == "true" ]]; then
+            FORCE_FLAG="--force"
+          fi
+          python inverter_control.py ${{ steps.ctx.outputs.action }} $FORCE_FLAG

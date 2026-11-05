@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: inverter-automator
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --workers 1 --threads 4 --bind 0.0.0.0:$PORT app:app
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: TIMEZONE
+        value: Asia/Bangkok
+      - key: SOLAR_CRON_HOUR
+        value: "4"
+      - key: SOLAR_CRON_MINUTE
+        value: "0,10,20"
+      - key: SBU_CRON_HOUR
+        value: "17"
+      - key: SBU_CRON_MINUTE
+        value: "0"
+      - key: STATUS_CRON_HOUR
+        value: "*/4"
+      - key: STATUS_CRON_MINUTE
+        value: "0"
+      - key: BILLING_SKIP_DAYS
+        value: "24,25"
+      - key: INVERTER_TOKEN
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_USER_ID
+        sync: false
+      - key: API_KEY
+        sync: false
