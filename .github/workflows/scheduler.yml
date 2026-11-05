@@ -19,7 +19,7 @@ on:
         default: true
 
   schedule:
-    - cron: '0,10,20 22 * * *'  # Solar Logic
+    - cron: '0,10,20 21 * * *'  # Solar Logic
     - cron: '0 10 * * *'        # SBU Logic
     - cron: '0 */4 * * *'        # Status Check
 
@@ -36,7 +36,7 @@ jobs:
           else
             echo "force=false" >> $GITHUB_OUTPUT
             CRON="${{ github.event.schedule }}"
-            if [[ "$CRON" == "0,10,20 22 * * *" ]]; then
+            if [[ "$CRON" == "0,10,20 21 * * *" ]]; then
               echo "action=set-solar" >> $GITHUB_OUTPUT
             elif [[ "$CRON" == "0 10 * * *" ]]; then
               echo "action=set-sbu" >> $GITHUB_OUTPUT
