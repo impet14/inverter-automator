@@ -192,9 +192,13 @@ def get_next_job_runs():
         if j.next_run_time:
             local_time = j.next_run_time.astimezone(TIMEZONE)
             delta = j.next_run_time - datetime.now(TIMEZONE)
-            mins = int(delta.total_seconds() // 60)
-            hrs, rem_mins = divmod(mins, 60)
-            time_until = f"in {hrs}h {rem_mins}m" if hrs > 0 else f"in {rem_mins}m"
+            total_sec = delta.total_seconds()
+            if total_sec <= 0:
+                time_until = "due now"
+            else:
+                mins = int(total_sec // 60)
+                hrs, rem_mins = divmod(mins, 60)
+                time_until = f"in {hrs}h {rem_mins}m" if hrs > 0 else f"in {rem_mins}m"
             runs[j.id] = {
                 "name": j.name,
                 "next_run": local_time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -425,13 +429,13 @@ DASHBOARD_HTML = """
             <div class="card">
                 <div class="card-title">
                     <span>☀️ Next Solar Switch</span>
-                    <span>04:00 (UTC+7)</span>
+                    <span>{{ solar_schedule_label }}</span>
                 </div>
                 <div class="card-value" style="color: var(--solar);">
                     {{ next_runs.get('job_set_solar', {}).get('next_run', 'Paused') }}
                 </div>
                 <div class="card-sub">
-                    {{ next_runs.get('job_set_solar', {}).get('time_until', '') }} (Retries at :10, :20)
+                    {{ next_runs.get('job_set_solar', {}).get('time_until', '') }}
                 </div>
             </div>
 
@@ -439,7 +443,7 @@ DASHBOARD_HTML = """
             <div class="card">
                 <div class="card-title">
                     <span>🔋 Next SBU Switch</span>
-                    <span>17:00 (UTC+7)</span>
+                    <span>{{ sbu_schedule_label }}</span>
                 </div>
                 <div class="card-value" style="color: var(--sbu);">
                     {{ next_runs.get('job_set_sbu', {}).get('next_run', 'Paused') }}
@@ -591,6 +595,8 @@ def dashboard():
     """Web Dashboard UI."""
     is_skip, current_day = inverter_control.is_billing_skip_day(TIMEZONE_NAME)
     skip_days_str = ", ".join(str(d) for d in inverter_control.get_billing_skip_days())
+    solar_label = f"{SOLAR_HOURS}:{SOLAR_MINUTES} ({TIMEZONE_NAME})"
+    sbu_label = f"{SBU_HOURS}:{SBU_MINUTES} ({TIMEZONE_NAME})"
     
     return render_template_string(
         DASHBOARD_HTML,
@@ -598,6 +604,8 @@ def dashboard():
         ping_counter=ping_counter,
         last_ping=last_ping_time,
         timezone_name=TIMEZONE_NAME,
+        solar_schedule_label=solar_label,
+        sbu_schedule_label=sbu_label,
         inverter_mode=latest_inverter_status,
         next_runs=get_next_job_runs(),
         billing_day=current_day,
