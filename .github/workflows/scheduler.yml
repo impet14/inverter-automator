@@ -22,7 +22,7 @@ on:
   # Schedule triggers migrated to Render 24/7 Web Service (kept commented out to prevent duplicate runs)
   # schedule:
   #   - cron: '0,10,20 21 * * *'  # Solar Logic (04:00, 04:10, 04:20 UTC+7)
-  #   - cron: '0 10 * * *'        # SBU Logic (17:00 UTC+7)
+  #   - cron: '30 11 * * *'       # SBU Logic (18:30 UTC+7)
   #   - cron: '0 */4 * * *'        # Status Check
 
 jobs:

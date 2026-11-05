@@ -18,9 +18,9 @@ services:
       - key: SOLAR_CRON_MINUTE
         value: "0,10,20"
       - key: SBU_CRON_HOUR
-        value: "17"
+        value: "18"
       - key: SBU_CRON_MINUTE
-        value: "0"
+        value: "30"
       - key: STATUS_CRON_HOUR
         value: "*/4"
       - key: STATUS_CRON_MINUTE

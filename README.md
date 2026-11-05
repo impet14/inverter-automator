@@ -37,7 +37,7 @@
 
 ## ⚡ The Problem with GitHub Actions Cron
 
-Solar priority switching requires **punctual execution**. As the sun rises (e.g., 04:00–05:00 AM) or when preparing for sunset (17:00 PM), switching delay wastes solar energy or causes unnecessary battery draw.
+Solar priority switching requires **punctual execution**. As the sun rises (e.g., 04:00–05:00 AM) or when preparing for sunset/evening (18:30 PM), switching delay wastes solar energy or causes unnecessary battery draw.
 
 GitHub Actions cron schedules run on best-effort shared infrastructure:
 - ❌ **Unpredictable delays**: Scheduled jobs regularly delay by **15 to 45+ minutes**.
@@ -69,7 +69,7 @@ flowchart TD
         APP --> REST["🎛️ REST API (/api/trigger)"]
         
         SCHED -->|04:00, 04:10, 04:20| GATE{"📅 Billing Gate (24th–25th?)"}
-        SCHED -->|17:00| SBU["🔋 set-sbu"]
+        SCHED -->|18:30| SBU["🔋 set-sbu"]
         SCHED -->|Every 4h| STATUS["📊 read-status"]
         
         GATE -->|Normal Day| SOLAR["☀️ set-solar"]
@@ -152,8 +152,8 @@ You can deploy directly using Render's Blueprint or create a manual Web Service:
 | `TIMEZONE` | Timezone for scheduler and dashboard | `Asia/Bangkok` |
 | `SOLAR_CRON_HOUR` | Hour(s) for Solar mode switch | `4` |
 | `SOLAR_CRON_MINUTE` | Minute(s) for Solar mode switch | `0,10,20` |
-| `SBU_CRON_HOUR` | Hour(s) for SBU mode switch | `17` |
-| `SBU_CRON_MINUTE` | Minute(s) for SBU mode switch | `0` |
+| `SBU_CRON_HOUR` | Hour(s) for SBU mode switch | `18` |
+| `SBU_CRON_MINUTE` | Minute(s) for SBU mode switch | `30` |
 | `STATUS_CRON_HOUR` | Hour(s) for silent status query | `*/4` |
 | `BILLING_SKIP_DAYS` | Day numbers to skip Solar switch | `24,25` |
 | `API_KEY` | *(Optional)* Protects `/api/trigger` endpoint | *(Optional)* |
@@ -199,7 +199,7 @@ The default schedule is calibrated for tropical solar conditions (Bangkok time, 
 | Time (UTC+7) | Action | Mode | Description |
 |---|---|---|---|
 | **04:00, 04:10, 04:20** | `set-solar` | `val=1` | Switches to Solar-first before sunrise (Retries 3x to ensure delivery; auto-skips on days 24–25) |
-| **17:00** | `set-sbu` | `val=2` | Switches to Battery-first (SBU) before sunset |
+| **18:30** | `set-sbu` | `val=2` | Switches to Battery-first (SBU) in the evening |
 | **Every 4 hours** | `read-status` | Query | Silent status query (updates dashboard, no LINE spam) |
 
 ### Billing Adjustment Period (24th–25th)

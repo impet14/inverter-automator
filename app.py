@@ -33,9 +33,9 @@ except Exception:
 SOLAR_HOURS = os.environ.get("SOLAR_CRON_HOUR", "4")
 SOLAR_MINUTES = os.environ.get("SOLAR_CRON_MINUTE", "0,10,20")
 
-# 17:00 Bangkok time = 10:00 UTC
-SBU_HOURS = os.environ.get("SBU_CRON_HOUR", "17")
-SBU_MINUTES = os.environ.get("SBU_CRON_MINUTE", "0")
+# 18:30 Bangkok time = 11:30 UTC
+SBU_HOURS = os.environ.get("SBU_CRON_HOUR", "18")
+SBU_MINUTES = os.environ.get("SBU_CRON_MINUTE", "30")
 
 # Status check every 4 hours
 STATUS_HOURS = os.environ.get("STATUS_CRON_HOUR", "*/4")
@@ -595,8 +595,10 @@ def dashboard():
     """Web Dashboard UI."""
     is_skip, current_day = inverter_control.is_billing_skip_day(TIMEZONE_NAME)
     skip_days_str = ", ".join(str(d) for d in inverter_control.get_billing_skip_days())
-    solar_label = f"{SOLAR_HOURS}:{SOLAR_MINUTES} ({TIMEZONE_NAME})"
-    sbu_label = f"{SBU_HOURS}:{SBU_MINUTES} ({TIMEZONE_NAME})"
+    solar_mins_display = SOLAR_MINUTES if "," in SOLAR_MINUTES else SOLAR_MINUTES.zfill(2)
+    sbu_mins_display = SBU_MINUTES.zfill(2) if SBU_MINUTES.isdigit() else SBU_MINUTES
+    solar_label = f"{SOLAR_HOURS.zfill(2)}:{solar_mins_display} ({TIMEZONE_NAME})"
+    sbu_label = f"{SBU_HOURS.zfill(2)}:{sbu_mins_display} ({TIMEZONE_NAME})"
     
     return render_template_string(
         DASHBOARD_HTML,
