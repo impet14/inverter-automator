@@ -14,7 +14,6 @@ on:
           - read-status
           - set-solar
           - set-sbu
-          - recover-tokens
       ignore_date_skip:
         description: 'Override date restriction (24th-25th)?'
         type: boolean
